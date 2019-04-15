@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            #ctx1{
+                background-color:rgba(0,0,0,.3)
+            }
+            ul{
+                position:fixed;
+                top:10px;
+                left:10px;
+                list-style: none;
+            }
+            ul li{
+                border-radius: 5px;
+                border:1px solid #fff;
+                padding:5px 10px;
+                color:#fff;
+                font-size:14px;
+                margin-bottom:5px;
+                cursor: pointer;
+            }
+            ul li.active{
+                border-color:#e4393c;
+                background-color:#e4393c;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="ctx1"></canvas>
+        <ul>
+            <li class="normal active">普通</li>
+            <li class="line">线段</li>
+            <li class="point">圆点</li>
+        </ul>
+        <script>
+            let canvas = document.getElementById('ctx1'),
+                ctx1 = canvas.getContext('2d'),
+                cw = canvas.width = window.innerWidth;
+                ch = canvas.height = window.innerHeight,
+                style = 'normal',
+                ul = document.querySelector('ul');
+            
+            ul.addEventListener('click',function(e){
+                [].map.call(e.target.parentElement.children,(function(obj){
+                    obj.className = obj.classList[0];
+                }))
+                style = e.target.classList[0];
+                e.target.className = e.target.classList[0] +' active'
+                
+            })
+            function randomNum(num){
+                return Math.floor(Math.random()*num)
+            }
+            function rmColor(){
+                    return Math.floor(Math.random()*128+127)
+            }
+            // 
+            class Kirakira {
+                constructor(targetX = cw/2,targetY = ch/2){
+                    this.targetLocation = {x: targetX, y: targetY};
+                    this.radius = 1;
+                }
+                draw(){
+                    ctx1.beginPath();
+                    ctx1.arc(this.targetLocation.x, this.targetLocation.y, this.radius, 0, Math.PI*2)
+                    ctx1.lineWidth = 2;
+                    ctx1.strokeStyle = '#ffffff';
+                    ctx1.stroke();
+                }
+                update(){
+                    if(this.radius < 5){
+                        this.radius += .3
+                    }else{
+                        this.radius = 1
+                    }
+                }
+                init(){
+                    this.draw();
+                    this.update();
+                }
+            }   
+            // 爆炸效果
+            class Boom{
+                constructor(startX = cw/2,startY = ch/2,count = 50){
+                    this.startLocation = {x: startX,y: startY};
+                    this.nowLocation = {x: startX,y: startY};
+
+                    // 烟花长度
+                    this.length = 2
+                    // 加速度
+                    this.A = .95
+                    
+                    // 阀值
+                    this.targetCount = 3000
+                    // 
+                    this.nowNum = 1
+                    //透明度 
+                    this.alpha = 1
+                    // 重力系数
+                    this.G = .98
+                    this.decay = .015
+
+                    // 线段集合，每次存10个，取10个帧的距离
+                    this.collection = []
+                    for(let i = 0; i< count; i++){
+                        this.collection.push({
+                            x:this.startLocation.x,
+                            y:this.startLocation.y,
+                            angle: this.randomRngle(),
+                            speed: Math.random()*10 + 2,
+                            color: `rgba(${rmColor()},${rmColor()},${rmColor()},${this.alpha})`
+                        })
+                    }
+                    
+                    // 是否到达目标点
+                    this.arrived = false
+
+                }
+                randomRngle(){
+                    return Math.random()*Math.PI*2
+                }
+                
+                draw(){
+                    
+                    this.collection.map(obj =>{
+                        ctx1.beginPath()
+                        
+                        if(style === 'point'){
+                            // 荧光圆点
+                            ctx1.arc(obj.x, obj.y, 3, 0, Math.PI*2)
+                            let gra = ctx1.createRadialGradient(obj.x,obj.y,0,obj.x,obj.y,5)
+                            gra.addColorStop(0,obj.color);
+                            gra.addColorStop(1,'#fff');
+                            ctx1.fillStyle = gra;
+                            ctx1.fill();
+                        }else{
+                            if(style === 'normal'){
+                                // 正常线段
+                                ctx1.moveTo(obj.x, obj.y)
+                            }else if(style === 'line'){
+                                // 射线段
+                                ctx1.moveTo(this.startLocation.x,this.startLocation.y);
+                            }
+                            ctx1.lineWidth = 3
+                            ctx1.lineCap = 'round'
+                            ctx1.lineTo(obj.x - this.length * Math.cos(obj.angle), obj.y - this.length * Math.sin(obj.angle))
+                            
+                            ctx1.strokeStyle = `rgba(${rmColor()},${rmColor()},${rmColor()},${this.alpha})`
+                            ctx1.strokeStyle = obj.color;
+                            ctx1.stroke()
+                        }
+                        
+                        
+                        
+                        
+                    })
+                    
+                }
+                update(){
+                    
+                    this.collection = this.collection.map(obj => {
+                        obj.speed *= this.A     
+                        obj.x =obj.x + Math.cos(obj.angle) * obj.speed
+                        obj.y =obj.y + Math.sin(obj.angle) * obj.speed + this.G
+                        this.nowNum++
+                        if(this.nowNum >= this.targetCount){
+                            this.alpha -= this.decay
+                        }
+                        if(this.alpha <=0){
+                            this.arrived = true
+                        }
+                        return obj
+                    })
+                }
+                init(){
+                    this.draw();
+                    this.update();
+                }
+            }
+            //轨道
+            class Biubiubiu{
+                constructor(targetX = cw/2, targetY = ch/2,startX = cw/2, startY = ch){
+                    this.startLocation = {x: startX, y: startY}
+                    
+                    this.nowLocation = {x: startX, y: startY}
+                    this.targetLocation = {x: targetX, y: targetY}
+                    if(targetY == startY){
+                        this.link = 0;
+                    }else if(targetX == startX){
+                        this.link = 1;
+                    }else{
+                        this.link = (targetX - startX)/(targetY - startY)
+                    }
+                    this.length = 10;
+                    this.speed = Math.random()*2+2;
+                    this.color = `rgba(${rmColor()},${rmColor()},${rmColor()},${this.alpha})`
+                    this.isReady = false;
+                }
+                draw(){
+                    // ctx1.clearRect(0, 0, cw, ch);
+                    ctx1.beginPath()
+                    ctx1.moveTo(this.startLocation.x, this.startLocation.y)
+                    ctx1.lineWidth = 3
+                    ctx1.lineCap = 'round'
+                    ctx1.lineTo(this.nowLocation.x, this.nowLocation.y)
+                    ctx1.strokeStyle = '#fff';
+                    ctx1.stroke()
+                }
+                update(){
+                    if(this.nowLocation.y > this.targetLocation.y){
+                        this.startLocation.x = this.nowLocation.x;
+                        this.startLocation.y = this.nowLocation.y;
+                        this.nowLocation.y -= this.speed
+                        this.nowLocation.x -= this.speed*this.link;
+                        
+                    }else{
+                        this.nowLocation.y = this.targetLocation.y;
+                        this.nowLocation.x = this.targetLocation.x;
+                        this.length = 0;
+                        this.isReady = true;
+                    }
+                }
+                init(){
+                    this.draw()
+                    this.update()
+                }
+            }
+            class Animate{
+                constructor(){
+                    // 标记点列表
+                    this.kiraList = [];
+
+                    // 发射列表
+                    this.biuList = [];
+                    for(let i = 0; i < 10; i++){
+                        let targetX = randomNum(cw),
+                            targetY = randomNum(ch);
+                        this.biuList.push(new Biubiubiu(targetX,targetY))
+                        this.kiraList.push(new Kirakira(targetX,targetY))
+                    }
+                    // 爆炸列表
+                    this.boomList = [];
+
+                    this.timeTarget = 80;
+                    this.timerNum = 0;
+                }
+
+                run(){
+                    window.requestAnimationFrame(this.run.bind(this))
+                    ctx1.clearRect(0, 0, cw, ch);
+                    let biuNum = this.kiraList.length;
+                    
+                    for(let i = 0; i < this.boomList.length; i++){
+                        this.boomList[i].init();
+                        if(this.boomList[i].arrived){
+                            this.boomList.splice(i,1);
+                            i--
+                        }
+                        
+                    }
+                    for(let i = 0; i < biuNum; i++){
+                        this.biuList[i].init();
+                        // this.kiraList[i].init();
+                        if(this.biuList[i].isReady){
+                            this.boomList.push(new Boom(this.biuList[i].targetLocation.x,this.biuList[i].targetLocation.y))
+                            this.biuList.splice(i,1);
+                            // this.kiraList.splice(i,1);
+                            let targetX = randomNum(cw),
+                                targetY = randomNum(ch);
+                            this.biuList.push(new Biubiubiu(targetX,targetY))
+                            // this.kiraList.push(new Kirakira(targetX,targetY))
+                            i--
+                        }
+                    }
+                }
+            }
+            let animate = new Animate();
+            animate.run();
+            console.log(animate);
+        </script>
+    </body>
+    
+</html>
